@@ -1,0 +1,41 @@
+project:
+  name: '"project_name"'
+  board: selected_board
+  resources: resources_available()
+  ip: ip_available()
+  pmods: pmods_available()
+  modules: Vector{String}()
+  testbenches: Vector{String}()
+module:
+  name: '"module_name"'
+  ports: '"input clk,\ninput rst\n"'
+  parameters: '"\n"'
+  signals: '"\n"'
+  submodules: '"\n"'
+  initial_assignments: '"\n"'
+  continuous_assignments: '"\n"'
+  always_comb_assignments: '"\n"'
+  always_ff_assignments: '"\n"'
+testbench:
+  name: '"testbench"'
+  parameters: '"\n"'
+  stopping_condition: 'clk_count > 100'
+  signals: '"\n"'       
+  submodules: '"\n"'
+  initial_assignments: '"\n"'
+  continuous_assignments: '"\n"'
+  always_comb_assignments: '"\n"'
+  always_ff_assignments: '"\n"'
+  displays: '"\n"'
+  monitors: '"\n"'
+task:
+  name: '"task_name"'
+  automatic: true
+  ports: '"\n"'
+  behavior: '"\n"'
+function:
+  name: '"function_name"'
+  width: '"[7:0]"'
+  inputs: '""'
+  behavior: '""'
+  

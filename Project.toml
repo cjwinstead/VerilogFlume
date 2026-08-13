@@ -1,0 +1,18 @@
+name = "VerilogFlume"
+uuid = "0d48e1fa-0a6e-4321-837b-e2fc5ccbedaf"
+version = "0.1.0"
+authors = ["Chris Winstead <chris.winstead@usu.edu>"]
+
+[deps]
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+Mustache = "ffc61752-8dc7-55ee-8c37-f3e9cdd09e70"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
+
+[compat]
+Logging = "1.11.0"
+Mustache = "1.0.21"
+OrderedCollections = "1.8.1"
+Test = "1.11.0"
+YAML = "0.4.16"
