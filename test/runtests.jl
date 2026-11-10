@@ -145,5 +145,56 @@ using Test
         @test contains(sinst,".clk(clk),")
         @test contains(sinst,".q(q)")
     end
-    
+
+    # sara 11/5/26: the fixes from my review, one check each, and a real
+    # compile and run when icarus is on the PATH
+    @testset "generated verilog" begin
+        m = new_module(name="dff", ports="input clk,\ninput d,\noutput reg q",
+                       always_ff_assignments="always @(posedge clk) q <= d;")
+        msrc = generate_module_source(m)
+        @test contains(msrc, "q <= d;")            # was q &lt;= d;
+        @test !contains(msrc, "&lt;")
+        @test !contains(msrc, "#(")                # no parameters, no #( )
+        tb = new_testbench(name="tb", stopping_condition="clk_count > 20",
+                           signals="reg d;\nwire q;",
+                           initial_assignments="initial d = 0;",
+                           always_ff_assignments="always @(posedge clk) d <= ~d;",
+                           submodules="dff u(.clk(clk), .d(d), .q(q));")
+        tsrc = generate_testbench_source(tb)
+        @test contains(tsrc, "clk_count > 20")
+        @test contains(tsrc, "clk_count = 0;")
+        @test !contains(tsrc, "#(")
+        # the defaults alone have to work too
+        @test contains(generate_testbench_source(new_testbench()), "clk_count > 100")
+        @test contains(generate_module_source(module_yaml_template("m")), "module m")
+
+        # the String methods
+        @test contains(declare_module_instance("name: abc\nports:\n  - name: a\n"), ".a(a)")
+        @test contains(generate_xdc("resources: [clk, led]\n"), "PACKAGE_PIN W5")
+        @test list_resources("resources: [clk, led]\n") == "clk led"
+
+        # digits in a module name, a parameter without a default
+        h = scan_module_header("module adder4 #(\n  parameter W\n)(\n  input [W-1:0] a,\n  output q);\nendmodule\n")
+        @test h["name"] == "adder4"
+        @test h["parameters"][1]["name"] == "W"
+        @test h["parameters"][1]["default"] === nothing
+        @test length(h["ports"]) == 2
+
+        @test length(VerilogFlume.schema) == 5
+
+        iv = Sys.which("iverilog")
+        if iv === nothing
+            @info "iverilog not on the PATH, skipping the simulation"
+        else
+            mktempdir() do dir
+                write(joinpath(dir, "dff.v"), msrc)
+                write(joinpath(dir, "tb.v"), tsrc)
+                vvp = joinpath(dir, "tb.vvp")
+                @test success(`$iv -o $vvp $(joinpath(dir, "tb.v")) $(joinpath(dir, "dff.v"))`)
+                out = read(`$(Sys.which("vvp")) $vvp`, String)
+                @test contains(out, "\$finish called")
+            end
+        end
+    end
+
 end

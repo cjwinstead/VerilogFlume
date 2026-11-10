@@ -16,7 +16,9 @@ function __init__()
         end
     end
     schema_file = joinpath(@__DIR__,"..","schema.yaml")
-    schema = YAML.load_file(schema_file;dicttype=OrderedDict{String,Any})
+    #schema = YAML.load_file(schema_file;dicttype=OrderedDict{String,Any})
+    # sara 11/1/26: without global this was a local, VerilogFlume.schema stayed empty
+    global schema = YAML.load_file(schema_file;dicttype=OrderedDict{String,Any})
 
     ###########################################################
     # Meta-definition for constructing new project objects
@@ -34,24 +36,42 @@ function __init__()
         str*="  return d\nend\n"
 
 
-        println("Generated from schema: ", str)
+        # Sara (11/1): 14 of these printed on every `using`, @debug keeps them
+        # for JULIA_DEBUG=VerilogFlume
+        #println("Generated from schema: ", str)
+        @debug "Generated from schema: " str
         eval(Meta.parse(str))
 
-        str="\nfunction $(k)_yaml_template()\n"
+        #str="\nfunction $(k)_yaml_template()\n"
+        #str*="   m=new_$(k)()\n"
+        # sara 11/1: his test calls module_yaml_template("mname"), so the name
+        # is optional now and goes into the template
+        str="\nfunction $(k)_yaml_template(name=nothing)\n"
         str*="   m=new_$(k)()\n"
+        str*="   name === nothing || (m[\"name\"]=name)\n"
         str*="   YAML.write(m)\nend\n"
-        println("Generated from schema: ", str)
+        #println("Generated from schema: ", str)
+        @debug "Generated from schema: " str
         p=Meta.parse(str)
-        
+
         eval(p)
-        
-        if isfile("templates/$(k).v")
+
+        # Sara 11/1/26: "templates/..." was relative to wherever julia was
+        # started, so outside the repo folder generate_module_source and the
+        # others were never defined at all. now next to this file.
+        tfile = joinpath(@__DIR__,"..","templates","$(k).v")
+        #if isfile("templates/$(k).v")
+        if isfile(tfile)
             str="\nfunction generate_$(k)_source(prj::String)\n"
-            str*="   generate_$(k)_source(YAML.load(prj))\nend\n"
-            println("Generated from schema: ", str)
+            #str*="   generate_$(k)_source(YAML.load(prj))\nend\n"
+            # sara 11/2: YAML.load gives a Dict, the method below takes OrderedDict
+            str*="   generate_$(k)_source(load_yaml(prj))\nend\n"
+            #println("Generated from schema: ", str)
+            @debug "Generated from schema: " str
             eval(Meta.parse(str))
             str="function generate_$(k)_source(prj::OrderedDict)\n"
-            str*="   Mustache.render_from_file(\"templates/$(k).v\",prj)\nend\n"
+            #str*="   Mustache.render_from_file(\"templates/$(k).v\",prj)\nend\n"
+            str*="   Mustache.render_from_file($(repr(tfile)),prj)\nend\n"
             eval(Meta.parse(str))
         end
     end
@@ -59,6 +79,16 @@ function __init__()
 end
 
 
+
+
+"""
+      load_yaml(s)
+
+YAML text to an OrderedDict, which is what every method here takes.
+"""
+# Sara (11/2): plain YAML.load gives a Dict, and all the String methods passed
+# that on to an OrderedDict method, a MethodError every time
+load_yaml(s::AbstractString) = YAML.load(s; dicttype=OrderedDict{String,Any})
 
 
 """
@@ -97,7 +127,10 @@ function parse_parameter_declaration(s)
         parsigned=m.captures[1]
         parname=m.captures[2]
 
-        p=match(r"=?[[:space:]]*(.*)",m.captures[3])
+        #p=match(r"=?[[:space:]]*(.*)",m.captures[3])
+        # sara, 11/02: "parameter W" has no default, captures[3] is nothing
+        # and match(r, nothing) threw
+        p = m.captures[3] === nothing ? nothing : match(r"=?[[:space:]]*(.*)",m.captures[3])
         if (p != nothing)
             pardef=p.captures[1]
         else
@@ -148,7 +181,9 @@ end
       is_port_declaration(line)
 """
 function is_port_declaration(line)
-    m=match(r"^[[:space:]]*(module)?[[:space:]]*([a-zA-Z_]+[[:space:]]*\()?[[:space:]]*(input|output)",line,1)
+    #m=match(r"^[[:space:]]*(module)?[[:space:]]*([a-zA-Z_]+[[:space:]]*\()?[[:space:]]*(input|output)",line,1)
+    # Sara 11/2/26: digits in a module name, adder4, see scan_module_header
+    m=match(r"^[[:space:]]*(module)?[[:space:]]*([a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\()?[[:space:]]*(input|output)",line,1)
     if (m==nothing)
         return false
     else
@@ -161,7 +196,8 @@ end
       is_parameter_declaration(line)
 """
 function is_parameter_declaration(line)
-    m=match(r"^[[:space:]]*(module)?[[:space:]]*([a-zA-Z_]+[[:space:]]*#\()?[[:space:]]*(parameter)",line,1)
+    #m=match(r"^[[:space:]]*(module)?[[:space:]]*([a-zA-Z_]+[[:space:]]*#\()?[[:space:]]*(parameter)",line,1)
+    m=match(r"^[[:space:]]*(module)?[[:space:]]*([a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*#\()?[[:space:]]*(parameter)",line,1)
     if (m==nothing)
         return false
     else
@@ -180,7 +216,9 @@ function scan_module_header(s)
     )
 
         for line in eachline(IOBuffer(s))
-            m=match(r"^[[:space:]]*module[[:space:]]+([a-zA-Z_]+)",line,1)
+            #m=match(r"^[[:space:]]*module[[:space:]]+([a-zA-Z_]+)",line,1)
+            # sara 11/2: module adder4 came back named "adder"
+            m=match(r"^[[:space:]]*module[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)",line,1)
             if (m != nothing)
                 data["name"]=m.captures[1]
             end
@@ -238,7 +276,9 @@ end
       declare_module_instance(data::String)
 """
 function declare_module_instance(data::String)
-    declareModuleInstance(YAML.load(data))
+    #declareModuleInstance(YAML.load(data))
+    # Sara, 11/3/26: the old camelCase name, it is not defined anywhere
+    declare_module_instance(load_yaml(data))
 end
 
 """
@@ -319,7 +359,8 @@ end
       generate_makefile(data::String)
 """
 function generate_makefile(data::String)
-    generate_makefile(YAML.load(data))
+    #generate_makefile(YAML.load(data))
+    generate_makefile(load_yaml(data))   # sara 11/3, OrderedDict
 end
 
 """
@@ -375,7 +416,8 @@ end
       generate_xdc(data::String)
 """
 function generate_xdc(data::String)
-    generate_xdc(YAML.load(data))
+    #generate_xdc(YAML.load(data))
+    generate_xdc(load_yaml(data))   # Sara (11/3)
 end
 
 
@@ -385,7 +427,9 @@ end
 function generate_xdc(data::OrderedDict)
     s=""
     for x in data["resources"]
-        s *= boards[selected_board]["xdc"][x] * "\n"
+        #s *= boards[selected_board]["xdc"][x] * "\n"
+        # sara 11/03: xdc sits under resources: in boards/basys3.yaml
+        s *= boards[selected_board]["resources"]["xdc"][x] * "\n"
     end
     return s
 end
@@ -397,7 +441,8 @@ end
 for k in ["modules","testbenches","resources","ip","pmods"]
     str="""
 function list_$(k)(s::String)
-   list_$(k)(YAML.load(s))
+   #list_$(k)(YAML.load(s))
+   list_$(k)(load_yaml(s))   # sara 11/3/26
 end
        """
     eval(Meta.parse(str))
@@ -440,6 +485,15 @@ export list_testbenches
 export list_ip
 export list_pmods
 export list_resources
+
+# Sara 11/1/26: made in __init__ but never exported, so his test could not
+# see module_yaml_template. the names are fixed by schema.yaml.
+export new_project, new_module, new_testbench, new_task, new_function
+export project_yaml_template, module_yaml_template, testbench_yaml_template
+export task_yaml_template, function_yaml_template
+export generate_module_source, generate_testbench_source
+export generate_task_source, generate_function_source
+export load_yaml
 
 
 end

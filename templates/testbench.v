@@ -1,9 +1,11 @@
+{{! sara 11/4/26: three braces, two braces escaped < > & into &lt; &gt; &amp; and the verilog did not compile }}
+{{! Sara (11/4): clk_count started as x, so rst never dropped and the stopping condition never held, the sim ran forever }}
 `timescale 1ns/1ps
 
-module {{name}}
+module {{{name}}}
    {{#parameters}}
      #( 
-      {{parameters}}
+      {{{parameters}}}
      ){{/parameters}}();
 
    reg clk;
@@ -13,6 +15,7 @@ module {{name}}
     initial begin
        rst = 1;
        clk = 0;
+       clk_count = 0;
        forever #5 clk = ~clk;
     end
 
@@ -21,20 +24,20 @@ module {{name}}
        if (clk_count > 1)
           rst <= 0;
        // Stopping condition:
-       if ({{stopping_condition}})
+       if ({{{stopping_condition}}})
           $finish();
     end
 		   
-   {{signals}}
+   {{{signals}}}
 
-   {{submodules}}
+   {{{submodules}}}
 
-   {{initial_assignments}}
+   {{{initial_assignments}}}
    
-   {{continuous_assignments}}
+   {{{continuous_assignments}}}
 
-   {{always_comb_assignments}}
+   {{{always_comb_assignments}}}
 
-   {{always_ff_assignments}}
+   {{{always_ff_assignments}}}
      
 endmodule
