@@ -9,7 +9,9 @@ project:
 module:
   name: '"module_name"'
   ports: '"input clk,\ninput rst\n"'
-  parameters: '"\n"'
+  #parameters: '"\n"'
+  # sara 11/4: a newline is not empty, so {{#parameters}} put #( ) in every header
+  parameters: '""'
   signals: '"\n"'
   submodules: '"\n"'
   initial_assignments: '"\n"'
@@ -18,8 +20,12 @@ module:
   always_ff_assignments: '"\n"'
 testbench:
   name: '"testbench"'
-  parameters: '"\n"'
-  stopping_condition: 'clk_count > 100'
+  #parameters: '"\n"'
+  parameters: '""'   # Sara 11/4/26, same as module
+  #stopping_condition: 'clk_count > 100'
+  # sara (11/4): these are julia code, so this ran clk_count > 100 in julia
+  # and new_testbench() threw UndefVarError. quoted like the others.
+  stopping_condition: '"clk_count > 100"'
   signals: '"\n"'       
   submodules: '"\n"'
   initial_assignments: '"\n"'
